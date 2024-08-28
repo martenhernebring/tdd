@@ -1,60 +1,44 @@
 package se.hernebring.primevalidator;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.math.BigInteger;
 
 public class Main {
 
-  public static void main(String[] args) throws IOException {
-    Instant start = java.time.Instant.now();
-    Main.printPrimes();
-    Instant end = java.time.Instant.now();
-    Duration between = java.time.Duration.between(start, end);
-    System.out.println( between ); // PT2H21M8.2257144S
-    System.out.format("%dD, %02d:%02d:%02d.%04d \n", between.toDays(),
-        between.toHours(), between.toMinutes(), between.getSeconds(), between.toMillis()); // 0D, 02:141:8468.8468225
+  public static final BigInteger ONE = BigInteger.valueOf(1), TWO = BigInteger.valueOf(2);
+  public static final int[] INTEGERS_SPRP_BASE = {7, 61};
+
+  public static boolean PrimeTime(int num) {
+    if(num < 4) {
+      return num >= 2;
+    }
+    if(num == INTEGERS_SPRP_BASE[0] || num == INTEGERS_SPRP_BASE[1]) {
+      return true;
+    }
+    if((num & 1) == 0) {
+      return false;
+    }
+    BigInteger bi = new BigInteger(num + "");
+    return passesMillerRabinStrongProbablePrimeBaseForIntegers(bi);
   }
 
-  private static void printPrimes() throws IOException {
-    Path file = Paths.get("src/main/resources/primes.txt");
-    int timeMax = 214, batchSize = 10_000_000;
-    List<String> lines;
+  private static boolean passesMillerRabinStrongProbablePrimeBaseForIntegers(BigInteger biUnderTest) {
+    // Find a and m such that m is odd and this == 1 + 2**a * m
+    BigInteger thisMinusOne = biUnderTest.subtract(ONE);
+    BigInteger m = thisMinusOne;
+    int a = m.getLowestSetBit();
+    m = m.shiftRight(a);
 
-    boolean[] primes = Prime.generatePrimes(batchSize);
-    lines = new ArrayList<>(1_000_000);
-    for(int i = 0; i < primes.length; i++) {
-      if(primes[i]) {
-        lines.add(String.valueOf(i));
+    // Do the tests
+    for (int sprpBase : INTEGERS_SPRP_BASE) {
+      int j = 0;
+      BigInteger z = new BigInteger(sprpBase + "").modPow(m, biUnderTest);
+      while (!((j == 0 && z.equals(ONE)) || z.equals(thisMinusOne))) {
+        if (j > 0 && z.equals(ONE) || ++j == a)
+          return false;
+        z = z.modPow(TWO, biUnderTest);
       }
     }
-    Files.write(file, lines, StandardCharsets.UTF_8);
-    int time = 2;
-    for(; time <= timeMax; time++) {
-      boolean[] newPrimes = Prime.generatePrimes(primes, time);
-      lines = new ArrayList<>(1_000_000);
-      for(int i = (time - 1) * primes.length; i < time * primes.length; i++) {
-        if(newPrimes[i - (time - 1) * primes.length]) {
-          lines.add(String.valueOf(i));
-        }
-      }
-      Files.write(file, lines, StandardCharsets.UTF_8, StandardOpenOption.APPEND);
-    }
-
-    int[] lastPrimes = Prime.generatePrimes(timeMax * batchSize, Integer.MAX_VALUE);
-    lines = Arrays.stream(lastPrimes).filter(v -> v > 0)
-        .mapToObj(Integer::toString).collect(Collectors.toList());
-    lines.add(String.valueOf(Integer.MAX_VALUE));
-    Files.write(file, lines, StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+    return true;
   }
 
 }

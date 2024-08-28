@@ -1,4 +1,4 @@
-package se.hernebring.primevalidator;
+package se.hernebring.primegenerator;
 
 import java.util.*;
 
